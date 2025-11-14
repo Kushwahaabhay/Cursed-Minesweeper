@@ -1,0 +1,15 @@
+# Android Key Properties Template
+# Copy this file to android/key.properties and fill in your actual values
+# DO NOT commit key.properties to version control!
+
+storePassword=YOUR_KEYSTORE_PASSWORD_HERE
+keyPassword=YOUR_KEY_PASSWORD_HERE
+keyAlias=cursedkey
+storeFile=C:/Users/YourUsername/cursed_minesweeper_keystore.jks
+
+# Instructions:
+# 1. Generate keystore with:
+#    keytool -genkey -v -keystore ~/cursed_minesweeper_keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias cursedkey
+# 2. Remember the passwords you set!
+# 3. Update this file with your actual passwords and keystore path
+# 4. Make sure .gitignore includes key.properties

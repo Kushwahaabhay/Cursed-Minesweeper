@@ -1,0 +1,43 @@
+name: cursed_minesweeper
+description: A retro, brainrot Minesweeper clone with local meme audio clips
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # Audio playback
+  audioplayers: ^5.2.1
+  
+  # State management (lightweight)
+  provider: ^6.1.1
+  
+  # Local storage for high scores
+  shared_preferences: ^2.2.2
+  
+  # Google Fonts for retro pixel font
+  google_fonts: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+
+  # Audio assets
+  assets:
+    - assets/sounds/explosion.ogg
+    - assets/sounds/bach_gaya.ogg
+    - assets/sounds/flag.ogg
+    - assets/sounds/click.ogg
+    - assets/sounds/win.ogg
+    - assets/sounds/lose.ogg
+
+  # Pixel font (using Google Fonts - will be downloaded automatically)
+  # No need to bundle fonts when using google_fonts package
