@@ -2,12 +2,23 @@
 
 A retro Minesweeper clone with custom audio effects. Built with Flutter.
 
+**Now available on Web!** 🌐 Play in your browser with full audio support.
+
+## 🎯 Platforms
+
+- ✅ **Windows** - Native desktop app
+- ✅ **Android** - Mobile app (APK)
+- ✅ **Web** - Play in browser (NEW!)
+- 🔜 **Linux** - Coming soon
+- 🔜 **iOS** - Coming soon
+
 ## 📋 Prerequisites
 
 - **Flutter SDK**: 3.0.0 or higher (with null-safety)
-- **Android Studio** or VS Code with Flutter extension
+- **Android Studio** or VS Code with Flutter extension (for mobile)
 - **Java JDK 11** (for Android builds)
 - **Android SDK** with API level 21+ (Android 5.0+)
+- **Chrome/Edge** (for web development)
 - **FFmpeg** (optional, for audio conversion)
 
 ### Check Your Setup
@@ -16,7 +27,19 @@ flutter doctor -v
 java -version
 ```
 
-## 🚀 Quick Start (One-Shot Setup)
+## 🚀 Quick Start
+
+### Web (Easiest!)
+```bash
+# Run in browser
+run_web.bat
+
+# Or manually
+flutter run -d chrome
+```
+See `WEB_QUICKSTART.md` for deployment options.
+
+### Windows/Android
 
 1. **Navigate to project directory:**
 ```powershell

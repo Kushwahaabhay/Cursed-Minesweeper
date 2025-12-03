@@ -26,11 +26,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadBestTimes() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _bestTimes = {
-        'Beginner': prefs.getInt('best_time_beginner') ?? 999,
-        'Intermediate': prefs.getInt('best_time_intermediate') ?? 999,
-        'Expert': prefs.getInt('best_time_expert') ?? 999,
-      };
+      _bestTimes = {};
+      for (final difficulty in Difficulty.presets) {
+        final key = difficulty.name.toLowerCase();
+        _bestTimes[difficulty.name] = prefs.getInt('best_time_$key') ?? 999;
+      }
     });
   }
   
@@ -105,28 +105,56 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildSection(
                   title: 'SELECT DIFFICULTY',
                   child: Column(
-                    children: Difficulty.presets.map((difficulty) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: _buildDifficultyButton(difficulty),
-                      );
-                    }).toList(),
+                    children: [
+                      // Standard difficulties
+                      ...Difficulty.presets.take(3).map((difficulty) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: _buildDifficultyButton(difficulty),
+                        );
+                      }),
+                      
+                      // Extreme difficulties (collapsible)
+                      if (Difficulty.presets.length > 3) ...[
+                        const SizedBox(height: 8),
+                        const Divider(color: Color(0xFF00FF00), thickness: 1),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '⚠️ EXTREME MODES ⚠️',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFFFF0000),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...Difficulty.presets.skip(3).map((difficulty) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: _buildDifficultyButton(difficulty),
+                          );
+                        }),
+                      ],
+                    ],
                   ),
                 ),
                 
                 const SizedBox(height: 30),
                 
-                // Best times
+                // Best times (only show top 3 standard difficulties)
                 _buildSection(
                   title: 'BEST TIMES',
                   child: Column(
-                    children: [
-                      _buildBestTime('Beginner', _bestTimes['Beginner'] ?? 999),
-                      const SizedBox(height: 8),
-                      _buildBestTime('Intermediate', _bestTimes['Intermediate'] ?? 999),
-                      const SizedBox(height: 8),
-                      _buildBestTime('Expert', _bestTimes['Expert'] ?? 999),
-                    ],
+                    children: Difficulty.presets.take(3).map((difficulty) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: _buildBestTime(
+                          difficulty.name,
+                          _bestTimes[difficulty.name] ?? 999,
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
                 

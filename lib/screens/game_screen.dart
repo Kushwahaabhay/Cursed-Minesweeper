@@ -53,12 +53,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   
   /// Handle tile tap
   void _onTileTap(int row, int col) {
+    final tile = _gameState.grid[row][col];
+    
     if (_flagMode) {
       // Flag mode: tap to flag
-      _gameState.toggleFlag(row, col);
-      AudioManager.instance.playFlag();
+      if (!tile.isRevealed) {
+        _gameState.toggleFlag(row, col);
+        AudioManager.instance.playFlag();
+      }
     } else {
       // Reveal mode: tap to reveal
+      final wasRevealed = tile.isRevealed;
+      final previousStatus = _gameState.status;
+      
       final hitMine = _gameState.revealTile(row, col);
       
       if (hitMine) {
@@ -66,13 +73,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         AudioManager.instance.playExplosion();
         _shakeController.forward(from: 0.0);
         _showGameOverDialog(won: false);
-      } else if (_gameState.status == GameStatus.won) {
+      } else if (_gameState.status == GameStatus.won && previousStatus != GameStatus.won) {
         // Player won!
         AudioManager.instance.playWin();
         _saveScore();
         _showGameOverDialog(won: true);
-      } else {
-        // Normal click
+      } else if (wasRevealed && tile.adjacentMines > 0) {
+        // Chord click - check if any tiles were revealed
+        AudioManager.instance.playClick();
+      } else if (!wasRevealed) {
+        // Normal reveal click
         AudioManager.instance.playClick();
       }
     }
@@ -80,25 +90,36 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   
   /// Handle tile long press
   void _onTileLongPress(int row, int col) {
+    final tile = _gameState.grid[row][col];
+    
     if (_flagMode) {
       // Flag mode: long press to reveal
+      final wasRevealed = tile.isRevealed;
+      final previousStatus = _gameState.status;
+      
       final hitMine = _gameState.revealTile(row, col);
       
       if (hitMine) {
         AudioManager.instance.playExplosion();
         _shakeController.forward(from: 0.0);
         _showGameOverDialog(won: false);
-      } else if (_gameState.status == GameStatus.won) {
+      } else if (_gameState.status == GameStatus.won && previousStatus != GameStatus.won) {
         AudioManager.instance.playWin();
         _saveScore();
         _showGameOverDialog(won: true);
-      } else {
+      } else if (wasRevealed && tile.adjacentMines > 0) {
+        // Chord click
+        AudioManager.instance.playClick();
+      } else if (!wasRevealed) {
+        // Normal reveal
         AudioManager.instance.playClick();
       }
     } else {
       // Reveal mode: long press to flag
-      _gameState.toggleFlag(row, col);
-      AudioManager.instance.playFlag();
+      if (!tile.isRevealed) {
+        _gameState.toggleFlag(row, col);
+        AudioManager.instance.playFlag();
+      }
     }
   }
   
@@ -171,15 +192,32 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     });
   }
   
-  /// Calculate tile size based on screen width
+  /// Calculate tile size based on screen width and grid size
   double _calculateTileSize(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
     final padding = 32.0; // Total horizontal padding
+    
+    // Calculate based on width
     final availableWidth = screenWidth - padding;
-    final tileSize = availableWidth / widget.difficulty.cols;
+    final widthBasedSize = availableWidth / widget.difficulty.cols;
+    
+    // Calculate based on height (leave room for controls)
+    final availableHeight = screenHeight - 250; // Controls + padding
+    final heightBasedSize = availableHeight / widget.difficulty.rows;
+    
+    // Use the smaller of the two to ensure grid fits
+    final calculatedSize = widthBasedSize < heightBasedSize ? widthBasedSize : heightBasedSize;
     
     // Clamp tile size for readability
-    return tileSize.clamp(20.0, 40.0);
+    // For large grids, allow smaller tiles
+    if (widget.difficulty.isExtremeGrid) {
+      return calculatedSize.clamp(8.0, 30.0);
+    } else if (widget.difficulty.isLargeGrid) {
+      return calculatedSize.clamp(12.0, 35.0);
+    } else {
+      return calculatedSize.clamp(20.0, 40.0);
+    }
   }
   
   @override
@@ -221,6 +259,25 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         );
                       },
                     ),
+                    
+                    // Warning for extreme grids
+                    if (widget.difficulty.isExtremeGrid)
+                      Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF0000).withOpacity(0.2),
+                          border: Border.all(color: const Color(0xFFFF0000), width: 1),
+                        ),
+                        child: Text(
+                          '⚠️ EXTREME MODE: ${widget.difficulty.rows}×${widget.difficulty.cols} (${widget.difficulty.mines} mines)',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Color(0xFFFF0000),
+                            fontSize: 8,
+                          ),
+                        ),
+                      ),
                     
                     const SizedBox(height: 16),
                     

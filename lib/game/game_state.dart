@@ -19,6 +19,9 @@ class GameState extends ChangeNotifier {
   // For timer updates
   bool _timerActive = false;
   
+  // Track if first click has been made (for safe first click)
+  bool _firstClickMade = false;
+  
   GameState({required Difficulty initialDifficulty}) {
     difficulty = initialDifficulty;
     _initializeGame();
@@ -31,6 +34,7 @@ class GameState extends ChangeNotifier {
     startTime = null;
     elapsedSeconds = 0;
     _timerActive = false;
+    _firstClickMade = false;
     
     // Create empty grid
     grid = List.generate(
@@ -41,25 +45,36 @@ class GameState extends ChangeNotifier {
       ),
     );
     
-    // Place mines randomly
-    _placeMines();
-    
-    // Calculate adjacent mine counts
-    _calculateAdjacentMines();
+    // Don't place mines yet - wait for first click to ensure it's safe
     
     notifyListeners();
   }
   
-  /// Place mines randomly on the grid
-  void _placeMines() {
+  /// Place mines randomly on the grid, avoiding the first click position and its neighbors
+  void _placeMines({int? safeRow, int? safeCol}) {
     final random = Random();
     int minesPlaced = 0;
+    
+    // Create list of safe positions (first click + its 8 neighbors)
+    final safePositions = <String>{};
+    if (safeRow != null && safeCol != null) {
+      for (int dr = -1; dr <= 1; dr++) {
+        for (int dc = -1; dc <= 1; dc++) {
+          final r = safeRow + dr;
+          final c = safeCol + dc;
+          if (_isValidPosition(r, c)) {
+            safePositions.add('$r,$c');
+          }
+        }
+      }
+    }
     
     while (minesPlaced < difficulty.mines) {
       final row = random.nextInt(difficulty.rows);
       final col = random.nextInt(difficulty.cols);
+      final key = '$row,$col';
       
-      if (!grid[row][col].isMine) {
+      if (!grid[row][col].isMine && !safePositions.contains(key)) {
         grid[row][col].isMine = true;
         minesPlaced++;
       }
@@ -68,12 +83,20 @@ class GameState extends ChangeNotifier {
   
   /// Calculate adjacent mine counts for all tiles
   void _calculateAdjacentMines() {
+    int tilesWithNumbers = 0;
     for (int row = 0; row < difficulty.rows; row++) {
       for (int col = 0; col < difficulty.cols; col++) {
         if (!grid[row][col].isMine) {
           grid[row][col].adjacentMines = _countAdjacentMines(row, col);
+          if (grid[row][col].adjacentMines > 0) {
+            tilesWithNumbers++;
+          }
         }
       }
+    }
+    // Debug output
+    if (kDebugMode) {
+      print('🔢 Adjacent mines calculated: $tilesWithNumbers tiles have numbers');
     }
   }
   
@@ -113,11 +136,32 @@ class GameState extends ChangeNotifier {
     // Can't reveal flagged tiles
     if (tile.isFlagged) return false;
     
-    // Already revealed
-    if (tile.isRevealed) return false;
+    // Already revealed - try chord click
+    if (tile.isRevealed) {
+      final hitMine = _chordClick(row, col);
+      notifyListeners();
+      return hitMine;
+    }
     
-    // Start timer on first reveal
-    if (startTime == null) {
+    // First click - place mines now to ensure safe start
+    if (!_firstClickMade) {
+      _firstClickMade = true;
+      _placeMines(safeRow: row, safeCol: col);
+      _calculateAdjacentMines();
+      
+      // Debug: Count mines
+      if (kDebugMode) {
+        int mineCount = 0;
+        for (final r in grid) {
+          for (final t in r) {
+            if (t.isMine) mineCount++;
+          }
+        }
+        print('🎯 Mines placed: $mineCount / ${difficulty.mines}');
+        print('🎯 First click at: ($row, $col)');
+      }
+      
+      // Start timer on first reveal
       startTime = DateTime.now();
       _timerActive = true;
     }
@@ -144,6 +188,70 @@ class GameState extends ChangeNotifier {
     
     notifyListeners();
     return false;
+  }
+  
+  /// Chord click: reveal all adjacent tiles if correct number of flags placed
+  /// This is a classic minesweeper feature for faster gameplay
+  /// Returns true if any mine was hit
+  bool _chordClick(int row, int col) {
+    final tile = grid[row][col];
+    
+    // Only works on revealed tiles with adjacent mines
+    if (!tile.isRevealed || tile.adjacentMines == 0) return false;
+    
+    // Count adjacent flags
+    int adjacentFlags = 0;
+    for (int dr = -1; dr <= 1; dr++) {
+      for (int dc = -1; dc <= 1; dc++) {
+        if (dr == 0 && dc == 0) continue;
+        
+        final newRow = row + dr;
+        final newCol = col + dc;
+        
+        if (_isValidPosition(newRow, newCol) && grid[newRow][newCol].isFlagged) {
+          adjacentFlags++;
+        }
+      }
+    }
+    
+    // Only chord if number of flags matches adjacent mine count
+    if (adjacentFlags != tile.adjacentMines) return false;
+    
+    // Reveal all adjacent non-flagged tiles
+    bool hitMine = false;
+    for (int dr = -1; dr <= 1; dr++) {
+      for (int dc = -1; dc <= 1; dc++) {
+        if (dr == 0 && dc == 0) continue;
+        
+        final newRow = row + dr;
+        final newCol = col + dc;
+        
+        if (_isValidPosition(newRow, newCol)) {
+          final neighbor = grid[newRow][newCol];
+          
+          if (!neighbor.isRevealed && !neighbor.isFlagged) {
+            neighbor.isRevealed = true;
+            
+            // Check if we hit a mine
+            if (neighbor.isMine) {
+              hitMine = true;
+              status = GameStatus.lost;
+              _timerActive = false;
+              _revealAllMines();
+            } else if (neighbor.adjacentMines == 0) {
+              // Recursively reveal if empty
+              _floodFillReveal(newRow, newCol);
+            }
+          }
+        }
+      }
+    }
+    
+    if (!hitMine) {
+      _checkWinCondition();
+    }
+    
+    return hitMine;
   }
   
   /// Flood fill algorithm to reveal empty tiles and their neighbors

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../game/tile.dart';
 
@@ -34,9 +35,14 @@ class _TileWidgetState extends State<TileWidget> with SingleTickerProviderStateM
       duration: const Duration(milliseconds: 150),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
     );
+    
+    // If tile is already revealed on init, set animation to complete
+    if (widget.tile.isRevealed) {
+      _controller.value = 1.0;
+    }
   }
   
   @override
@@ -54,61 +60,77 @@ class _TileWidgetState extends State<TileWidget> with SingleTickerProviderStateM
     super.dispose();
   }
   
-  /// Get color for number based on adjacent mine count (classic Minesweeper colors)
+  /// Get color for number based on adjacent mine count (enhanced for dark theme)
   Color _getNumberColor(int adjacentMines) {
     switch (adjacentMines) {
       case 1:
-        return const Color(0xFF0000FF); // Blue
+        return const Color(0xFF00BFFF); // Bright Blue
       case 2:
-        return const Color(0xFF008000); // Green
+        return const Color(0xFF00FF00); // Bright Green
       case 3:
         return const Color(0xFFFF0000); // Red
       case 4:
-        return const Color(0xFF000080); // Dark Blue
+        return const Color(0xFF9370DB); // Medium Purple
       case 5:
-        return const Color(0xFF800000); // Maroon
+        return const Color(0xFFFF6347); // Tomato Red
       case 6:
-        return const Color(0xFF008080); // Cyan
+        return const Color(0xFF00CED1); // Dark Turquoise
       case 7:
-        return const Color(0xFF000000); // Black
+        return const Color(0xFFFFFFFF); // White
       case 8:
-        return const Color(0xFF808080); // Gray
+        return const Color(0xFFFF1493); // Deep Pink
       default:
-        return Colors.white;
+        return const Color(0xFF00FF00); // Green
     }
   }
   
   /// Build revealed tile content
   Widget _buildRevealedContent() {
     if (widget.tile.isMine) {
-      // Show mine icon
-      return const Icon(
+      // Show mine icon - scale based on tile size
+      final iconSize = (widget.size * 0.6).clamp(8.0, 24.0);
+      return Icon(
         Icons.close, // X for mine
-        color: Color(0xFFFF0000),
-        size: 20,
+        color: const Color(0xFFFF0000),
+        size: iconSize,
       );
     } else if (widget.tile.adjacentMines > 0) {
-      // Show number
+      // Show number of adjacent mines - scale font based on tile size
+      // Ensure minimum readable size
+      final fontSize = (widget.size * 0.5).clamp(14.0, 28.0);
+      
       return Text(
         widget.tile.adjacentMines.toString(),
+        textAlign: TextAlign.center,
         style: TextStyle(
           color: _getNumberColor(widget.tile.adjacentMines),
-          fontSize: widget.size * 0.4,
-          fontWeight: FontWeight.bold,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w900, // Extra bold
+          height: 1.2,
+          letterSpacing: 0,
+          shadows: [
+            // Add shadow for better visibility
+            Shadow(
+              color: Colors.black.withOpacity(0.8),
+              offset: const Offset(1, 1),
+              blurRadius: 3,
+            ),
+          ],
         ),
       );
     }
-    // Empty tile (no adjacent mines)
+    // Empty tile (no adjacent mines) - show nothing
     return const SizedBox.shrink();
   }
   
   /// Build unrevealed tile content
   Widget _buildUnrevealedContent() {
     if (widget.tile.isFlagged) {
+      final flagSize = (widget.size * 0.5).clamp(8.0, 20.0);
       return Icon(
         Icons.flag,
         color: const Color(0xFFFF00FF), // Magenta flag
-        size: widget.size * 0.5,
+        size: flagSize,
       );
     }
     return const SizedBox.shrink();
@@ -118,7 +140,8 @@ class _TileWidgetState extends State<TileWidget> with SingleTickerProviderStateM
   Widget build(BuildContext context) {
     final isRevealed = widget.tile.isRevealed;
     
-    Widget content = Container(
+    // Build the tile content
+    Widget tileContent = Container(
       width: widget.size,
       height: widget.size,
       decoration: BoxDecoration(
@@ -146,18 +169,24 @@ class _TileWidgetState extends State<TileWidget> with SingleTickerProviderStateM
       ),
     );
     
-    // Add reveal animation
-    if (isRevealed) {
-      content = ScaleTransition(
-        scale: _scaleAnimation,
-        child: content,
-      );
-    }
+    // Wrap with animation only if just revealed
+    Widget animatedContent = isRevealed
+        ? AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Transform.scale(
+                scale: _scaleAnimation.value,
+                child: child,
+              );
+            },
+            child: tileContent,
+          )
+        : tileContent;
     
     return GestureDetector(
       onTap: widget.onTap,
       onLongPress: widget.onLongPress,
-      child: content,
+      child: animatedContent,
     );
   }
 }

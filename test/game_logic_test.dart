@@ -13,21 +13,37 @@ void main() {
       expect(gameState.status, equals(GameStatus.playing));
     });
     
-    test('Correct number of mines are placed', () {
+    test('Correct number of mines are placed after first click', () {
       final gameState = GameState(initialDifficulty: Difficulty.beginner);
       
+      // Mines should be 0 before first click
       int mineCount = 0;
       for (final row in gameState.grid) {
         for (final tile in row) {
           if (tile.isMine) mineCount++;
         }
       }
+      expect(mineCount, equals(0)); // No mines before first click
       
-      expect(mineCount, equals(10)); // Beginner has 10 mines
+      // Make first click
+      gameState.revealTile(0, 0);
+      
+      // Now count mines
+      mineCount = 0;
+      for (final row in gameState.grid) {
+        for (final tile in row) {
+          if (tile.isMine) mineCount++;
+        }
+      }
+      
+      expect(mineCount, equals(10)); // Beginner has 10 mines after first click
     });
     
     test('Adjacent mine counts are calculated correctly', () {
       final gameState = GameState(initialDifficulty: Difficulty.beginner);
+      
+      // Make first click to place mines
+      gameState.revealTile(4, 4); // Click center
       
       for (int row = 0; row < gameState.difficulty.rows; row++) {
         for (int col = 0; col < gameState.difficulty.cols; col++) {
@@ -61,30 +77,34 @@ void main() {
     test('Revealing a safe tile works', () {
       final gameState = GameState(initialDifficulty: Difficulty.beginner);
       
-      // Find a safe tile (not a mine)
-      Tile? safeTile;
-      int safeRow = -1;
-      int safeCol = -1;
-      
-      for (int row = 0; row < 9; row++) {
-        for (int col = 0; col < 9; col++) {
-          if (!gameState.grid[row][col].isMine) {
-            safeTile = gameState.grid[row][col];
-            safeRow = row;
-            safeCol = col;
-            break;
-          }
-        }
-        if (safeTile != null) break;
-      }
-      
-      expect(safeTile, isNotNull);
-      
-      final hitMine = gameState.revealTile(safeRow, safeCol);
+      // First click is always safe now
+      final hitMine = gameState.revealTile(0, 0);
       
       expect(hitMine, isFalse);
-      expect(safeTile!.isRevealed, isTrue);
+      expect(gameState.grid[0][0].isRevealed, isTrue);
       expect(gameState.status, equals(GameStatus.playing));
+    });
+    
+    test('First click is always safe (no mine on clicked tile or neighbors)', () {
+      final gameState = GameState(initialDifficulty: Difficulty.beginner);
+      
+      // Click center tile
+      final clickRow = 4;
+      final clickCol = 4;
+      gameState.revealTile(clickRow, clickCol);
+      
+      // Check that clicked tile and all 8 neighbors have no mines
+      for (int dr = -1; dr <= 1; dr++) {
+        for (int dc = -1; dc <= 1; dc++) {
+          final row = clickRow + dr;
+          final col = clickCol + dc;
+          
+          if (row >= 0 && row < 9 && col >= 0 && col < 9) {
+            expect(gameState.grid[row][col].isMine, isFalse,
+                reason: 'Tile at ($row, $col) should not be a mine (neighbor of first click)');
+          }
+        }
+      }
     });
     
     test('Flagging a tile works', () {
